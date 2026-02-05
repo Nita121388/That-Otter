@@ -68,6 +68,7 @@ scp is a file transfer program...
 
 ## Settings
 
+- Language: Chinese (default) or English (switchable in settings)
 - Path mode: `Vault-relative` or `Absolute filesystem path` (desktop only)
 - Path style: `posix (/)` or `windows (\\)` (default is `windows`; applies to vault-relative paths)
 - Include line range: if selection spans multiple lines, copy `start-end`
