@@ -12,7 +12,8 @@ import {
 type OutputFormat = "plain" | "quote" | "code";
 
 interface CopyLocationSettings {
-  pathStyle: "posix" | "windows";
+  pathMode: "vaultRelative" | "absolute";
+  pathStyle: "posix" | "windows"; // only applies to vault-relative paths
   includeRange: boolean; // startLine or start-end
   plainIncludeText: "none" | "firstLine";
   quoteIncludeLocationLink: boolean; // add [[path]] line
@@ -21,6 +22,7 @@ interface CopyLocationSettings {
 }
 
 const DEFAULT_SETTINGS: CopyLocationSettings = {
+  pathMode: "vaultRelative",
   // Nita prefers backslash style like "Primary Mission\\...\\file.md:27".
   pathStyle: "windows",
   includeRange: true,
@@ -33,6 +35,20 @@ const DEFAULT_SETTINGS: CopyLocationSettings = {
 function normalizePath(path: string, style: CopyLocationSettings["pathStyle"]): string {
   if (style === "windows") return path.replace(/\//g, "\\");
   return path;
+}
+
+function tryGetAbsolutePath(app: App, vaultRelativePath: string): string | null {
+  // On desktop (FileSystemAdapter), adapter.getFullPath(path) returns an absolute filesystem path.
+  // On mobile / other adapters this may not exist; fall back to vault-relative.
+  const adapter = (app.vault.adapter as any) ?? {};
+  const getFullPath = adapter.getFullPath as undefined | ((p: string) => string);
+  if (!getFullPath) return null;
+  try {
+    const full = getFullPath(vaultRelativePath);
+    return typeof full === "string" && full.length ? full : null;
+  } catch {
+    return null;
+  }
 }
 
 function clampText(text: string, maxLen: number): string {
@@ -174,8 +190,13 @@ export default class CopyLocationPlugin extends Plugin {
     }
 
     const { start, end, text } = computeLineRange(editor);
-    const path = normalizePath(file.path, this.settings.pathStyle);
-    const out = renderOutput(fmt, path, file.path, start, end, text, this.settings);
+    const absPath = this.settings.pathMode === "absolute" ? tryGetAbsolutePath(this.app, file.path) : null;
+    const displayPath = absPath ?? normalizePath(file.path, this.settings.pathStyle);
+    if (this.settings.pathMode === "absolute" && !absPath) {
+      new Notice("Copy Location: absolute path not supported on this device; copied vault-relative path instead");
+    }
+
+    const out = renderOutput(fmt, displayPath, file.path, start, end, text, this.settings);
 
     try {
       await navigator.clipboard.writeText(out);
@@ -212,8 +233,21 @@ class CopyLocationSettingTab extends PluginSettingTab {
     containerEl.createEl("h2", { text: "Copy Location" });
 
     new Setting(containerEl)
+      .setName("Path mode")
+      .setDesc("Copy vault-relative path (Obsidian path) or absolute filesystem path (desktop only).")
+      .addDropdown((dd) => {
+        dd.addOption("vaultRelative", "Vault-relative (default)");
+        dd.addOption("absolute", "Absolute filesystem path");
+        dd.setValue(this.plugin.settings.pathMode);
+        dd.onChange(async (v) => {
+          this.plugin.settings.pathMode = v as CopyLocationSettings["pathMode"];
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
       .setName("Path style")
-      .setDesc("Use / (posix) or \\\\ (windows) in copied paths.")
+      .setDesc("Use / (posix) or \\\\ (windows) for vault-relative paths.")
       .addDropdown((dd) => {
         dd.addOption("posix", "posix (/)");
         dd.addOption("windows", "windows (\\\\)");

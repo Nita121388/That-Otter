@@ -25,6 +25,7 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
 var DEFAULT_SETTINGS = {
+  pathMode: "vaultRelative",
   // Nita prefers backslash style like "Primary Mission\\...\\file.md:27".
   pathStyle: "windows",
   includeRange: true,
@@ -36,6 +37,17 @@ var DEFAULT_SETTINGS = {
 function normalizePath(path, style) {
   if (style === "windows") return path.replace(/\//g, "\\");
   return path;
+}
+function tryGetAbsolutePath(app, vaultRelativePath) {
+  const adapter = app.vault.adapter ?? {};
+  const getFullPath = adapter.getFullPath;
+  if (!getFullPath) return null;
+  try {
+    const full = getFullPath(vaultRelativePath);
+    return typeof full === "string" && full.length ? full : null;
+  } catch {
+    return null;
+  }
 }
 function clampText(text, maxLen) {
   if (maxLen <= 0) return text;
@@ -140,8 +152,12 @@ var CopyLocationPlugin = class extends import_obsidian.Plugin {
       return;
     }
     const { start, end, text } = computeLineRange(editor);
-    const path = normalizePath(file.path, this.settings.pathStyle);
-    const out = renderOutput(fmt, path, file.path, start, end, text, this.settings);
+    const absPath = this.settings.pathMode === "absolute" ? tryGetAbsolutePath(this.app, file.path) : null;
+    const displayPath = absPath ?? normalizePath(file.path, this.settings.pathStyle);
+    if (this.settings.pathMode === "absolute" && !absPath) {
+      new import_obsidian.Notice("Copy Location: absolute path not supported on this device; copied vault-relative path instead");
+    }
+    const out = renderOutput(fmt, displayPath, file.path, start, end, text, this.settings);
     try {
       await navigator.clipboard.writeText(out);
       new import_obsidian.Notice("Copied location");
@@ -166,7 +182,16 @@ var CopyLocationSettingTab = class extends import_obsidian.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Copy Location" });
-    new import_obsidian.Setting(containerEl).setName("Path style").setDesc("Use / (posix) or \\\\ (windows) in copied paths.").addDropdown((dd) => {
+    new import_obsidian.Setting(containerEl).setName("Path mode").setDesc("Copy vault-relative path (Obsidian path) or absolute filesystem path (desktop only).").addDropdown((dd) => {
+      dd.addOption("vaultRelative", "Vault-relative (default)");
+      dd.addOption("absolute", "Absolute filesystem path");
+      dd.setValue(this.plugin.settings.pathMode);
+      dd.onChange(async (v) => {
+        this.plugin.settings.pathMode = v;
+        await this.plugin.saveSettings();
+      });
+    });
+    new import_obsidian.Setting(containerEl).setName("Path style").setDesc("Use / (posix) or \\\\ (windows) for vault-relative paths.").addDropdown((dd) => {
       dd.addOption("posix", "posix (/)");
       dd.addOption("windows", "windows (\\\\)");
       dd.setValue(this.plugin.settings.pathStyle);

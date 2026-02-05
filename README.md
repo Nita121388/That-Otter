@@ -68,7 +68,8 @@ scp is a file transfer program...
 
 ## Settings
 
-- Path style: `posix (/)` or `windows (\\)` (default is `windows`)
+- Path mode: `Vault-relative` or `Absolute filesystem path` (desktop only)
+- Path style: `posix (/)` or `windows (\\)` (default is `windows`; applies to vault-relative paths)
 - Include line range: if selection spans multiple lines, copy `start-end`
 - Plain format: include first non-empty line of selected text (or not)
 - Quote format: optionally add an extra `[[path]]` line after the location
