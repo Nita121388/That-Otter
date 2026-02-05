@@ -1,7 +1,7 @@
 {
   "id": "copy-location",
   "name": "Copy Location",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "minAppVersion": "1.5.0",
   "description": "Copy selected text with file path and line numbers (AI IDE style).",
   "author": "Nita + Codex",

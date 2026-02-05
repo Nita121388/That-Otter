@@ -139,22 +139,24 @@ export default class CopyLocationPlugin extends Plugin {
 
     this.addSettingTab(new CopyLocationSettingTab(this.app, this));
 
+    // Use checkCallback instead of editorCallback so commands still work when focus is in
+    // the Properties panel (or other non-editor UI) while a markdown note is active.
     this.addCommand({
       id: "copy-location-plain",
       name: "Copy location (plain)",
-      editorCallback: (editor) => this.copyFromEditor(editor, "plain")
+      checkCallback: (checking) => this.runWithActiveEditor(checking, "plain")
     });
 
     this.addCommand({
       id: "copy-location-quote",
       name: "Copy location (markdown quote)",
-      editorCallback: (editor) => this.copyFromEditor(editor, "quote")
+      checkCallback: (checking) => this.runWithActiveEditor(checking, "quote")
     });
 
     this.addCommand({
       id: "copy-location-code",
       name: "Copy location (code block)",
-      editorCallback: (editor) => this.copyFromEditor(editor, "code")
+      checkCallback: (checking) => this.runWithActiveEditor(checking, "code")
     });
 
     this.registerEvent(
@@ -181,6 +183,15 @@ export default class CopyLocationPlugin extends Plugin {
   }
 
   onunload(): void {}
+
+  private runWithActiveEditor(checking: boolean, fmt: OutputFormat): boolean {
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    const editor = view?.editor;
+    if (!editor) return false;
+    if (checking) return true;
+    void this.copyFromEditor(editor, fmt);
+    return true;
+  }
 
   private async copyFromEditor(editor: Editor, fmt: OutputFormat): Promise<void> {
     const file = this.app.workspace.getActiveFile();

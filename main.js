@@ -115,17 +115,17 @@ var CopyLocationPlugin = class extends import_obsidian.Plugin {
     this.addCommand({
       id: "copy-location-plain",
       name: "Copy location (plain)",
-      editorCallback: (editor) => this.copyFromEditor(editor, "plain")
+      checkCallback: (checking) => this.runWithActiveEditor(checking, "plain")
     });
     this.addCommand({
       id: "copy-location-quote",
       name: "Copy location (markdown quote)",
-      editorCallback: (editor) => this.copyFromEditor(editor, "quote")
+      checkCallback: (checking) => this.runWithActiveEditor(checking, "quote")
     });
     this.addCommand({
       id: "copy-location-code",
       name: "Copy location (code block)",
-      editorCallback: (editor) => this.copyFromEditor(editor, "code")
+      checkCallback: (checking) => this.runWithActiveEditor(checking, "code")
     });
     this.registerEvent(
       // The Obsidian API includes "editor-menu", but typings may lag behind.
@@ -144,6 +144,14 @@ var CopyLocationPlugin = class extends import_obsidian.Plugin {
     );
   }
   onunload() {
+  }
+  runWithActiveEditor(checking, fmt) {
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian.MarkdownView);
+    const editor = view?.editor;
+    if (!editor) return false;
+    if (checking) return true;
+    void this.copyFromEditor(editor, fmt);
+    return true;
   }
   async copyFromEditor(editor, fmt) {
     const file = this.app.workspace.getActiveFile();
